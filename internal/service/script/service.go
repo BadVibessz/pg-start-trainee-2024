@@ -26,5 +26,4 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 	}
 
 	exec.Command()
-
 }

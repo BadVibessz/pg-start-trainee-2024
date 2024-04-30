@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os/exec"
 	"strings"
+
+	osutils "pg-start-trainee-2024/pkg/utils/os"
 )
 
 func splitInto(str string) (string, []string) {
@@ -16,14 +16,34 @@ func splitInto(str string) (string, []string) {
 func main() {
 	// name, args := splitInto("goose -dir db/migrations up")
 
-	cmd := exec.Command("goose", "--help")
+	//args, err := shellwords.Parse("echo gunna | sudo -S systemctl status docker")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
-	var out strings.Builder
-	cmd.Stdout = &out
+	//// todo: service layer must create new temp file with command inside it and then execute by exec.Command("/bin/sh", "filename")
+	//cmd := exec.Command("/bin/sh", "./test_script.sh")
+	//var out strings.Builder
+	//cmd.Stdout = &out
+	//
+	//if err := cmd.Run(); err != nil {
+	//	log.Fatal(err)
+	//}
 
-	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
+	//cmd := exec.Command("/bin/sh", "./test_script.sh")
+	//cmd.Start()
+	//cmd.Wait()
+
+	output := make(chan string)
+
+	pid, err := osutils.RunCommand("ping google.com", output)
+	if err != nil {
+		log.Fatalf(err.Error())
 	}
 
-	fmt.Printf(out.String())
+	println(pid)
+
+	for token := range output {
+		print(token)
+	}
 }
