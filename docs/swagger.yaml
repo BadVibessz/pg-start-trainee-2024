@@ -1,0 +1,62 @@
+definitions:
+  request.CreateScript:
+    properties:
+      command:
+        minLength: 1
+        type: string
+    required:
+    - command
+    type: object
+  response.CreateScript:
+    properties:
+      command:
+        type: string
+      id:
+        type: integer
+      pid:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /pg-start-trainee/api/v1/script:
+    post:
+      consumes:
+      - application/json
+      description: Create and run new script
+      parameters:
+      - description: create script schema
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateScript'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.CreateScript'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Create and run new script
+      tags:
+      - Banner
+swagger: "2.0"
