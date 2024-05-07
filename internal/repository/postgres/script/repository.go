@@ -52,9 +52,10 @@ func (r *Repo) queryRowxContextWithStructScan(ctx context.Context, query string,
 func (r *Repo) UpdateScriptOutput(ctx context.Context, id int, output string) (*entity.Script, error) {
 	var script entity.Script
 
+	// TODO: bad concatenation!
 	if err := r.queryRowxContextWithStructScan(
 		ctx,
-		fmt.Sprintf(`UPDATE script SET output = output || '%v' WHERE id = %v
+		fmt.Sprintf(`UPDATE script SET output = output || '%v' WHERE id = %v 
         RETURNING  id, command, output, is_running, pid, created_at, updated_at`, output, id),
 		&script,
 	); err != nil {

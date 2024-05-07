@@ -20,6 +20,42 @@ info:
   contact: {}
 paths:
   /pg-start-trainee/api/v1/script:
+    patch:
+      consumes:
+      - application/json
+      description: Stop running script
+      parameters:
+      - description: script ID
+        in: header
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Stop running script
+      tags:
+      - Banner
     post:
       consumes:
       - application/json

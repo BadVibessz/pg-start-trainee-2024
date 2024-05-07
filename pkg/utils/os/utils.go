@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// todo: https://stackoverflow.com/questions/69733417/golang-execute-shell-command-and-return-as-channel
 func RunCommand(ctx context.Context, command string, pidChan chan int, callback func(chan string)) error {
 	errChan := make(chan error)
 	doneChan := make(chan bool)
@@ -33,7 +32,7 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, callback 
 			callback(outChan)
 		}()
 
-		cmd := exec.Command("/bin/sh", filename)
+		cmd := exec.CommandContext(ctx, "/bin/sh", filename)
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
@@ -47,8 +46,6 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, callback 
 		pidChan <- cmd.Process.Pid
 		close(pidChan)
 
-		// todo: maybe use buffered chan?
-		// todo: go func here?
 		scanner := bufio.NewScanner(cmdReader)
 		for scanner.Scan() {
 			outChan <- scanner.Text()

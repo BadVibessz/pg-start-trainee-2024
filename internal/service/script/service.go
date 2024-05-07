@@ -1,10 +1,13 @@
 package script
 
+import "C"
 import (
 	"context"
 	"fmt"
 	"pg-start-trainee-2024/domain/entity"
+	"strconv"
 	"sync"
+	"time"
 
 	osutils "pg-start-trainee-2024/pkg/utils/os"
 )
@@ -16,12 +19,21 @@ type Repo interface {
 	UpdateScriptPID(ctx context.Context, id, pid int) (*entity.Script, error)
 }
 
-type Service struct {
-	Repo Repo
+type Cache interface {
+	Set(key string, value any, duration time.Duration)
+	Get(key string) (any, bool)
 }
 
-func New(repo Repo) *Service {
-	return &Service{Repo: repo}
+type Service struct {
+	Repo  Repo
+	Cache Cache
+}
+
+func New(repo Repo, cache Cache) *Service {
+	return &Service{
+		Repo:  repo,
+		Cache: cache,
+	}
 }
 
 func (s *Service) updateScriptOutputWithStrings(ctx context.Context, id int, strings ...string) (*entity.Script, error) {
@@ -70,6 +82,8 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 		return nil, err
 	}
 
+	cmdCtx, cancel := context.WithCancel(context.Background())
+
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
@@ -89,10 +103,10 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 
 	go func() {
 		if err := osutils.RunCommand(
-			ctx,
+			cmdCtx,
 			script.Command,
 			pidChan,
-			s.outCallback(ctx, 5, scpt.ID),
+			s.outCallback(cmdCtx, 5, scpt.ID),
 		); err != nil { // todo: delete only if err != ErrContextCancelled
 			// if err occurred => we have to delete created script from db
 			if _, err := s.Repo.DeleteScript(ctx, scpt.ID); err != nil {
@@ -103,5 +117,26 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 
 	wg.Wait()
 
+	// as script started we can add to inmemory cache tuple (script.ID, context.CancelFunc)
+	s.Cache.Set(strconv.Itoa(scpt.ID), cancel, -1) // todo: duration forever? RAM overflow?
+
 	return scpt, err
+}
+
+func (s *Service) StopScript(ctx context.Context, id int) error {
+	cancelAny, exist := s.Cache.Get(strconv.Itoa(id))
+	if !exist {
+		return ErrNoSuchRunningScript
+	}
+
+	cancel, ok := cancelAny.(context.CancelFunc)
+	if !ok {
+		return ErrCannotCastToCancelFunc
+	}
+
+	cancel()
+
+	// todo: update is_running state in db
+
+	return nil
 }

@@ -23,6 +23,8 @@ import (
 	"pg-start-trainee-2024/pkg/router"
 	dbutils "pg-start-trainee-2024/pkg/utils/db"
 	"syscall"
+
+	gocache "github.com/patrickmn/go-cache"
 )
 
 const (
@@ -105,6 +107,7 @@ func initConfig() (*config.Config, error) {
 func main() {
 	logger := logrus.New()
 	valid := validator.New(validator.WithRequiredStructEnabled())
+	cache := gocache.New(gocache.NoExpiration, 0) // todo: choose optimal durations
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -119,7 +122,7 @@ func main() {
 	}
 
 	scriptRepo := scriprepo.New(db)
-	scriptService := scriptservice.New(scriptRepo)
+	scriptService := scriptservice.New(scriptRepo, cache)
 	scriptHandler := scripthandler.New(scriptService, logger, valid)
 
 	routers := make(map[string]chi.Router)
@@ -164,16 +167,21 @@ func main() {
 
 		logger.Info("interrupt signal caught: shutting server down")
 
+		// invoke all context.CancelFunc in cache to kill all running scripts
+		for _, v := range cache.Items() { // todo: to private func
+			cmdCancel, ok := v.Object.(context.CancelFunc)
+			if ok {
+				cmdCancel()
+			}
+		}
+
+		// shutdown http server
 		if shutdownErr := server.Shutdown(ctx); err != nil {
 			logger.WithError(shutdownErr).Fatalf("can't close server listening on '%s'", server.Addr)
 		}
 
 		cancel()
-
-		// time.Sleep(2 * time.Second) // todo: need some time for gracefully shutdown, TODO: remove sleep!
 	}()
 
 	<-ctx.Done()
-
-	// todo: gracefully shutdown, maybe save created filenames in inmemdb and on shutdown check if all created files are deleted?
 }
