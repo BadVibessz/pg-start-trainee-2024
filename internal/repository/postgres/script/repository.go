@@ -80,13 +80,42 @@ func (r *Repo) DeleteScript(ctx context.Context, id int) (*entity.Script, error)
 	return &script, nil
 }
 
-func (r *Repo) UpdateScriptPID(ctx context.Context, id, pid int) (*entity.Script, error) {
+func (r *Repo) UpdateScriptPIDAndRunningState(ctx context.Context, id, pid int, isRunning bool) (*entity.Script, error) {
 	var script entity.Script
 
 	if err := r.queryRowxContextWithStructScan(
 		ctx,
-		fmt.Sprintf(`UPDATE script SET pid = %v WHERE id = %v
-        RETURNING  id, command, output, is_running, pid, created_at, updated_at`, pid, id),
+		fmt.Sprintf(`UPDATE script SET pid = %v, is_running = %v WHERE id = %v
+        RETURNING  id, command, output, is_running, pid, created_at, updated_at`, pid, isRunning, id),
+		&script,
+	); err != nil {
+		return nil, err
+	}
+
+	return &script, nil
+}
+
+func (r *Repo) UpdateScriptRunningState(ctx context.Context, id int, isRunning bool) (*entity.Script, error) {
+	var script entity.Script
+
+	if err := r.queryRowxContextWithStructScan(
+		ctx,
+		fmt.Sprintf(`UPDATE script SET is_running = %v WHERE id = %v
+        RETURNING  id, command, output, is_running, pid, created_at, updated_at`, isRunning, id),
+		&script,
+	); err != nil {
+		return nil, err
+	}
+
+	return &script, nil
+}
+
+func (r *Repo) GetScript(ctx context.Context, id int) (*entity.Script, error) {
+	var script entity.Script
+
+	if err := r.queryRowxContextWithStructScan(
+		ctx,
+		fmt.Sprintf(`SELECT * FROM script WHERE id = %v`, id),
 		&script,
 	); err != nil {
 		return nil, err

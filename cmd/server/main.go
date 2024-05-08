@@ -22,6 +22,7 @@ import (
 	scriptservice "pg-start-trainee-2024/internal/service/script"
 	"pg-start-trainee-2024/pkg/router"
 	dbutils "pg-start-trainee-2024/pkg/utils/db"
+	"strconv"
 	"syscall"
 
 	gocache "github.com/patrickmn/go-cache"
@@ -167,12 +168,20 @@ func main() {
 
 		logger.Info("interrupt signal caught: shutting server down")
 
-		// invoke all context.CancelFunc in cache to kill all running scripts
-		for _, v := range cache.Items() { // todo: to private func
-			cmdCancel, ok := v.Object.(context.CancelFunc)
-			if ok {
-				cmdCancel()
+		// stop all running scripts
+		for k := range cache.Items() { // todo: to private func
+			id, err := strconv.Atoi(k)
+			if err != nil {
+				err = scriptService.StopScript(ctx, id) // todo: is it good to use service here?
+				if err != nil {
+					logger.Errorf("error occurred stopping script: %v", err)
+				}
 			}
+
+			//cmdContext, ok := v.Object.(entity.CmdContext)
+			//if ok {
+			//	cmdContext.Cancel() // todo: set
+			//}
 		}
 
 		// shutdown http server

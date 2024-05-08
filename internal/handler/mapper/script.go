@@ -19,3 +19,15 @@ func MapScriptToCreateScriptResponse(script *entity.Script) response.CreateScrip
 		PID:     script.PID,
 	}
 }
+
+func MapScriptToGetScriptResponse(script *entity.Script) response.GetScript {
+	return response.GetScript{
+		ID:        script.ID,
+		Command:   script.Command,
+		Output:    script.Output,
+		IsRunning: script.IsRunning,
+		PID:       script.PID,
+		CreatedAt: script.CreatedAt,
+		UpdatedAt: script.UpdatedAt,
+	}
+}

@@ -19,6 +19,7 @@ import (
 type Service interface {
 	CreateScript(ctx context.Context, script entity.Script) (*entity.Script, error)
 	StopScript(ctx context.Context, id int) error
+	GetScript(ctx context.Context, id int) (*entity.Script, error)
 }
 
 type Middleware = func(http.Handler) http.Handler
@@ -48,6 +49,7 @@ func (h *Handler) Routes() *chi.Mux {
 
 		r.Post("/", h.CreateScript)
 		r.Patch("/", h.StopScript)
+		r.Get("/", h.GetScript)
 	})
 
 	return router
@@ -142,4 +144,40 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // tod
 
 	rw.WriteHeader(http.StatusOK)
 	rw.Write([]byte("script successfully stopped!"))
+}
+
+// GetScript godoc
+//
+//	@Summary		Get script
+//	@Description	Get script
+//	@Security		JWT
+//	@Tags			Banner
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	header		int	true	"script ID"
+//	@Success		200	{object}	response.GetScript
+//	@Failure		401	{string}	Unauthorized
+//	@Failure		403	{string}	Forbidden
+//	@Failure		400	{string}	invalid		request
+//	@Failure		500	{string}	internal	error
+//	@Router			/pg-start-trainee/api/v1/script [get]
+func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) { // todo: what http method, PATCH?
+	id, err := handlerutils.GetIntHeaderByKey(req, "id")
+	if err != nil {
+		msg := fmt.Sprintf("no id header provided: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+		return
+	}
+
+	script, err := h.Service.GetScript(req.Context(), id)
+	if err != nil {
+		msg := fmt.Sprintf("error occurred fetching script: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+		return
+	}
+
+	render.JSON(rw, req, mapper.MapScriptToGetScriptResponse(script))
+	rw.WriteHeader(http.StatusOK)
 }

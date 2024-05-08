@@ -3,7 +3,9 @@ package script
 import "C"
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"pg-start-trainee-2024/domain/entity"
 	"strconv"
 	"sync"
@@ -16,7 +18,9 @@ type Repo interface {
 	CreateScript(ctx context.Context, script entity.Script) (*entity.Script, error)
 	UpdateScriptOutput(ctx context.Context, id int, output string) (*entity.Script, error)
 	DeleteScript(ctx context.Context, id int) (*entity.Script, error)
-	UpdateScriptPID(ctx context.Context, id, pid int) (*entity.Script, error)
+	UpdateScriptPIDAndRunningState(ctx context.Context, id, pid int, isRunning bool) (*entity.Script, error)
+	UpdateScriptRunningState(ctx context.Context, id int, isRunning bool) (*entity.Script, error)
+	GetScript(ctx context.Context, id int) (*entity.Script, error)
 }
 
 type Cache interface {
@@ -76,6 +80,7 @@ func (s *Service) outCallback(ctx context.Context, n int, id int) func(chan stri
 // CreateScript creates and runs new script
 func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*entity.Script, error) {
 	pidChan := make(chan int, 1)
+	cmdChan := make(chan *exec.Cmd, 1)
 
 	scpt, err := s.Repo.CreateScript(ctx, script)
 	if err != nil {
@@ -93,7 +98,23 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 		for {
 			if pid := <-pidChan; pid != 0 {
 				// just as we captured pid => we can update script's PID
-				scpt, err = s.Repo.UpdateScriptPID(ctx, scpt.ID, pid) // todo: is_running := true
+				scpt, err = s.Repo.UpdateScriptPIDAndRunningState(ctx, scpt.ID, pid, true)
+
+				break
+			}
+		}
+
+	}()
+
+	var cmd *exec.Cmd
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		for {
+			if c := <-cmdChan; c != nil {
+				cmd = c
 
 				break
 			}
@@ -106,11 +127,14 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 			cmdCtx,
 			script.Command,
 			pidChan,
+			cmdChan,
 			s.outCallback(cmdCtx, 5, scpt.ID),
-		); err != nil { // todo: delete only if err != ErrContextCancelled
-			// if err occurred => we have to delete created script from db
+		); err != nil && !errors.Is(err, osutils.ErrContextCancelled) {
+			// if err occurred and err != ErrContextCancelled -> we have to delete created script from db as script hasn't started
 			if _, err := s.Repo.DeleteScript(ctx, scpt.ID); err != nil {
 				// todo:
+			} else {
+				// todo: set is_running = false
 			}
 		}
 	}()
@@ -118,25 +142,34 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 	wg.Wait()
 
 	// as script started we can add to inmemory cache tuple (script.ID, context.CancelFunc)
-	s.Cache.Set(strconv.Itoa(scpt.ID), cancel, -1) // todo: duration forever? RAM overflow?
+	s.Cache.Set(strconv.Itoa(scpt.ID), entity.CmdContext{Cmd: cmd, Cancel: cancel}, -1) // todo: duration forever? RAM overflow?
 
 	return scpt, err
 }
 
 func (s *Service) StopScript(ctx context.Context, id int) error {
-	cancelAny, exist := s.Cache.Get(strconv.Itoa(id))
+	cmdContextAny, exist := s.Cache.Get(strconv.Itoa(id))
 	if !exist {
 		return ErrNoSuchRunningScript
 	}
 
-	cancel, ok := cancelAny.(context.CancelFunc)
+	cmdContext, ok := cmdContextAny.(entity.CmdContext)
 	if !ok {
 		return ErrCannotCastToCancelFunc
 	}
 
-	cancel()
+	cmdContext.Cancel()
 
-	// todo: update is_running state in db
+	if _, err := s.Repo.UpdateScriptRunningState(ctx, id, false); err != nil {
+		return err
+	}
+
+	// wait for cmd to exit
+	_ = cmdContext.Cmd.Wait() // it will anyway return err 'signal: killed'
 
 	return nil
+}
+
+func (s *Service) GetScript(ctx context.Context, id int) (*entity.Script, error) {
+	return s.Repo.GetScript(ctx, id)
 }

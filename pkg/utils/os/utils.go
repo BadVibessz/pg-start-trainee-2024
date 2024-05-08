@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func RunCommand(ctx context.Context, command string, pidChan chan int, callback func(chan string)) error {
+func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan chan *exec.Cmd, callback func(chan string)) error {
 	errChan := make(chan error)
 	doneChan := make(chan bool)
 	outChan := make(chan string)
@@ -44,7 +44,10 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, callback 
 		}
 
 		pidChan <- cmd.Process.Pid
-		close(pidChan)
+		close(pidChan) // todo: defer?
+
+		cmdChan <- cmd
+		close(cmdChan) // todo: defer?
 
 		scanner := bufio.NewScanner(cmdReader)
 		for scanner.Scan() {
@@ -74,7 +77,3 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, callback 
 	}
 
 }
-
-//func Run(command string, callback func(chan string)) (int, chan error){
-//
-//}
