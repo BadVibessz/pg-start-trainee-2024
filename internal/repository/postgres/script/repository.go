@@ -53,7 +53,7 @@ func (r *Repo) queryRowxContextWithStructScan(ctx context.Context, query string,
 func (r *Repo) UpdateScriptOutput(ctx context.Context, id int, output string) (*entity.Script, error) {
 	var script entity.Script
 
-	// TODO: bad concatenation!
+	// TODO: bad concatenation!https://music.yandex.ru/album/2532279/track/22000803
 	if err := r.queryRowxContextWithStructScan(
 		ctx,
 		fmt.Sprintf(`UPDATE script SET output = output || '%v' WHERE id = %v 
