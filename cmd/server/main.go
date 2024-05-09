@@ -30,6 +30,8 @@ import (
 
 const (
 	configPath = "./config" // todo: env vars?
+	baseUri    = "/pg-start-trainee/api/"
+	apiVersion = "v1"
 )
 
 func initConfig() (*config.Config, error) {
@@ -58,57 +60,21 @@ func initConfig() (*config.Config, error) {
 	return &conf, nil
 }
 
-//func main() {
-//	logger := logrus.New()
-//	ctx, cancel := context.WithCancel(context.Background())
-//
-//	conf, err := initConfig()
-//	if err != nil {
-//		logger.Fatalf("cannot init config: %v", err)
-//	}
-//
-//	db, err := dbutils.TryToConnectToDB(conf.Postgres.ConnectionURL(), "postgres", conf.Postgres.Retries, conf.Postgres.Interval, logger)
-//	if err != nil {
-//		logger.Fatalf("cannot connect to db: %v", err)
-//	}
-//
-//	scriptRepo := scriprepo.New(db)
-//	scriptService := scriptservice.New(scriptRepo)
-//
-//	script := entity.Script{
-//		Command: "ping google.com",
-//	}
-//
-//	created, err := scriptService.CreateScript(ctx, script)
-//	if err != nil {
-//		logger.Fatalf("cannot create script: %v", err)
-//	}
-//
-//	logger.Infof("%+v", created)
-//
-//	// graceful shutdown
-//	interrupt := make(chan os.Signal, 1)
-//
-//	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
-//	signal.Notify(interrupt, syscall.SIGINT)
-//
-//	go func() {
-//		<-interrupt
-//
-//		logger.Info("interrupt signal caught: shutting server down")
-//
-//		cancel()
-//
-//		time.Sleep(2 * time.Second) // todo: need some time for gracefully shutdown, TODO: remove sleep!
-//	}()
-//
-//	<-ctx.Done()
-//}
+func shutdownScripts(ctx context.Context, scriptService *scriptservice.Service, cache *gocache.Cache, logger *logrus.Logger) {
+	for k := range cache.Items() {
+		if id, err := strconv.Atoi(k); err == nil {
+			err = scriptService.StopScript(ctx, id)
+			if err != nil {
+				logger.Errorf("error occurred stopping script: %v", err)
+			}
+		}
+	}
+}
 
 func main() {
 	logger := logrus.New()
 	valid := validator.New(validator.WithRequiredStructEnabled())
-	cache := gocache.New(gocache.NoExpiration, 0) // todo: choose optimal durations
+	cache := gocache.New(gocache.NoExpiration, 0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -123,7 +89,7 @@ func main() {
 	}
 
 	scriptRepo := scriprepo.New(db)
-	scriptService := scriptservice.New(scriptRepo, cache)
+	scriptService := scriptservice.New(scriptRepo, cache, conf.Service.OutputBufferLength)
 	scriptHandler := scripthandler.New(scriptService, logger, valid)
 
 	routers := make(map[string]chi.Router)
@@ -135,7 +101,7 @@ func main() {
 		chimiddlewares.Logger,
 	}
 
-	r := router.MakeRoutes("/pg-start-trainee/api/v1", routers, middlewares...) // todo: to conf or const
+	r := router.MakeRoutes(baseUri+apiVersion, routers, middlewares...)
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%v", conf.Server.Port),
@@ -169,20 +135,7 @@ func main() {
 		logger.Info("interrupt signal caught: shutting server down")
 
 		// stop all running scripts
-		for k := range cache.Items() { // todo: to private func
-			id, err := strconv.Atoi(k)
-			if err != nil {
-				err = scriptService.StopScript(ctx, id) // todo: is it good to use service here?
-				if err != nil {
-					logger.Errorf("error occurred stopping script: %v", err)
-				}
-			}
-
-			//cmdContext, ok := v.Object.(entity.CmdContext)
-			//if ok {
-			//	cmdContext.Cancel() // todo: set
-			//}
-		}
+		shutdownScripts(ctx, scriptService, cache, logger)
 
 		// shutdown http server
 		if shutdownErr := server.Shutdown(ctx); err != nil {

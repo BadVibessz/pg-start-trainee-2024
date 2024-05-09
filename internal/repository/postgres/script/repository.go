@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"math"
 	"pg-start-trainee-2024/domain/entity"
 )
 
@@ -122,4 +123,39 @@ func (r *Repo) GetScript(ctx context.Context, id int) (*entity.Script, error) {
 	}
 
 	return &script, nil
+}
+
+func (r *Repo) GetAllScripts(ctx context.Context, offset, limit int) ([]*entity.Script, error) {
+	query := "SELECT * FROM script ORDER BY created_at"
+
+	if limit == math.MaxInt64 {
+		query = fmt.Sprintf(`%v OFFSET %v`, query, offset)
+	} else {
+		query = fmt.Sprintf(`%v LIMIT %v OFFSET %v`, query, limit, offset)
+	}
+
+	rows, err := r.DB.QueryxContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var scripts []*entity.Script
+
+	if limit != math.MaxInt64 {
+		scripts = make([]*entity.Script, 0, limit)
+	}
+
+	for rows.Next() {
+		var script entity.Script
+
+		if err = rows.StructScan(&script); err != nil {
+			return nil, err
+		}
+
+		scripts = append(scripts, &script)
+	}
+
+	return scripts, nil
 }

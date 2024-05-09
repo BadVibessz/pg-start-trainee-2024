@@ -13,6 +13,8 @@ import (
 
 	"github.com/go-chi/render"
 
+	handlerinternalutils "pg-start-trainee-2024/internal/pkg/utils/handler"
+	sliceutils "pg-start-trainee-2024/internal/pkg/utils/slice"
 	handlerutils "pg-start-trainee-2024/pkg/utils/handler"
 )
 
@@ -20,6 +22,8 @@ type Service interface {
 	CreateScript(ctx context.Context, script entity.Script) (*entity.Script, error)
 	StopScript(ctx context.Context, id int) error
 	GetScript(ctx context.Context, id int) (*entity.Script, error)
+	GetAllScripts(ctx context.Context, offset, limit int) ([]*entity.Script, error)
+	DeleteScript(ctx context.Context, id int) error
 }
 
 type Middleware = func(http.Handler) http.Handler
@@ -50,6 +54,8 @@ func (h *Handler) Routes() *chi.Mux {
 		r.Post("/", h.CreateScript)
 		r.Patch("/", h.StopScript)
 		r.Get("/", h.GetScript)
+		r.Get("/all", h.GetAllScripts)
+		r.Delete("/", h.DeleteScript) // todo: path param maybe?
 	})
 
 	return router
@@ -66,7 +72,6 @@ func (h *Handler) Routes() *chi.Mux {
 //	@Param			input	body		request.CreateScript	true	"create script schema"
 //	@Success		200		{object}	response.CreateScript
 //	@Failure		401		{string}	Unauthorized
-//	@Failure		403		{string}	Forbidden
 //	@Failure		400		{string}	invalid		request
 //	@Failure		500		{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [post]
@@ -89,16 +94,6 @@ func (h *Handler) CreateScript(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	/* todo:
-	1) можно создавать отдельный context.WithCancel и передавать его в функцию osutils.RunCommand()
-	после запуска команды добавлять этот контекс и может быть какую-нибудь метаинформацию про cmd в inmem кеш
-	по запросу handler.DeleteScript(id) посмотреть в бд, если у этой команды is_running=true,
-	то завершить соответствующий контекст и обновить данные в бд, но мне кажется что это ПЛОХОЙ ВАРИАНТ!
-
-	2) еще можно отказаться от модели удаления временного файла через defer, а удалять его при остановки программы отдельной функцией.
-	*/
-
-	// TODO: req context is cancelled when req is processed -> osutils.RunCommand is cancelled -> script also cancelled, for this func we need another context
 	created, err := h.Service.CreateScript(req.Context(), mapper.MapCreateScriptRequestToEntity(&scriptReq))
 	if err != nil {
 		msg := fmt.Sprintf("error occurred creating script: %v", err)
@@ -122,7 +117,6 @@ func (h *Handler) CreateScript(rw http.ResponseWriter, req *http.Request) {
 //	@Param			id	header	int	true	"script ID"
 //	@Success		200
 //	@Failure		401	{string}	Unauthorized
-//	@Failure		403	{string}	Forbidden
 //	@Failure		400	{string}	invalid		request
 //	@Failure		500	{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [patch]
@@ -143,7 +137,7 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // tod
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte("script successfully stopped!"))
+	rw.Write([]byte("script successfully stopped."))
 }
 
 // GetScript godoc
@@ -157,7 +151,6 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // tod
 //	@Param			id	header		int	true	"script ID"
 //	@Success		200	{object}	response.GetScript
 //	@Failure		401	{string}	Unauthorized
-//	@Failure		403	{string}	Forbidden
 //	@Failure		400	{string}	invalid		request
 //	@Failure		500	{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [get]
@@ -180,4 +173,75 @@ func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) { // todo
 
 	render.JSON(rw, req, mapper.MapScriptToGetScriptResponse(script))
 	rw.WriteHeader(http.StatusOK)
+}
+
+// GetAllScripts godoc
+//
+//	@Summary		Get all scripts
+//	@Description	Get all scripts
+//	@Security		JWT
+//	@Tags			Banner
+//	@Accept			json
+//	@Produce		json
+//	@Param			offset	query		int	false	"Offset"
+//	@Param			limit	query		int	false	"Limit"
+//	@Success		200		{object}	[]response.GetScript
+//	@Failure		400		{string}	invalid		request
+//	@Failure		500		{string}	internal	error
+//	@Router			/pg-start-trainee/api/v1/script/all [get]
+func (h *Handler) GetAllScripts(rw http.ResponseWriter, req *http.Request) {
+	paginationOpts := handlerinternalutils.GetPaginationOptsFromQuery(req, DefaultOffset, DefaultLimit)
+
+	if err := paginationOpts.Validate(h.validator); err != nil {
+		msg := fmt.Sprintf("invalid pagination options provided: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+
+		return
+	}
+
+	scripts, err := h.Service.GetAllScripts(req.Context(), paginationOpts.Offset, paginationOpts.Limit)
+	if err != nil {
+		msg := fmt.Sprintf("error occurred fetching scripts: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+		return
+	}
+
+	render.JSON(rw, req, sliceutils.Map(scripts, mapper.MapScriptToGetScriptResponse))
+	rw.WriteHeader(http.StatusOK)
+}
+
+// DeleteScript godoc
+//
+//	@Summary		Get all scripts
+//	@Description	Get all scripts
+//	@Security		JWT
+//	@Tags			Banner
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	header		int	true	"script ID"
+//	@Success		200
+//	@Failure		400		{string}	invalid		request
+//	@Failure		500		{string}	internal	error
+//	@Router			/pg-start-trainee/api/v1/script [delete]
+func (h *Handler) DeleteScript(rw http.ResponseWriter, req *http.Request) {
+	id, err := handlerutils.GetIntHeaderByKey(req, "id")
+	if err != nil {
+		msg := fmt.Sprintf("no id header provided: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+		return
+	}
+
+	err = h.Service.DeleteScript(req.Context(), id)
+	if err != nil {
+		msg := fmt.Sprintf("error occurred deleting script: %v", err)
+
+		handlerutils.WriteErrResponseAndLog(rw, h.logger, http.StatusBadRequest, msg, msg)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	rw.Write([]byte("script successfully deleted."))
 }

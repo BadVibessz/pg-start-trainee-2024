@@ -9,3 +9,6 @@ postgres:
   dbname: pg_start
   retries: 5
   interval: 5
+
+service:
+  output_buffer_length: 10

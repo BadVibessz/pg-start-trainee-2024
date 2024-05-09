@@ -37,6 +37,34 @@ info:
   contact: {}
 paths:
   /pg-start-trainee/api/v1/script:
+    delete:
+      consumes:
+      - application/json
+      description: Get all scripts
+      parameters:
+      - description: script ID
+        in: header
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Get all scripts
+      tags:
+      - Banner
     get:
       consumes:
       - application/json
@@ -60,10 +88,6 @@ paths:
             type: string
         "401":
           description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
           schema:
             type: string
         "500":
@@ -96,10 +120,6 @@ paths:
             type: string
         "401":
           description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
           schema:
             type: string
         "500":
@@ -137,8 +157,40 @@ paths:
           description: Unauthorized
           schema:
             type: string
-        "403":
-          description: Forbidden
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Create and run new script
+      tags:
+      - Banner
+  /pg-start-trainee/api/v1/script/all:
+    get:
+      consumes:
+      - application/json
+      description: Get all scripts
+      parameters:
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/response.GetScript'
+            type: array
+        "400":
+          description: Bad Request
           schema:
             type: string
         "500":
@@ -147,7 +199,7 @@ paths:
             type: string
       security:
       - JWT: []
-      summary: Create and run new script
+      summary: Get all scripts
       tags:
       - Banner
 swagger: "2.0"
