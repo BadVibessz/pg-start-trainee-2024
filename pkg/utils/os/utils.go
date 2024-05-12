@@ -14,18 +14,22 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 	doneChan := make(chan bool)
 	outChan := make(chan string)
 
+	handleErr := func(err error) {
+		errChan <- err
+
+		close(pidChan)
+		close(cmdChan)
+	}
+
 	filename := fmt.Sprintf("./%v_temp_script.sh", time.Now().Unix())
 
 	// create temp file
 	if err := os.WriteFile(filename, []byte(command), 0666); err != nil {
-		errChan <- err
+		handleErr(err)
 	}
 
 	// remove created file
 	defer os.Remove(filename)
-
-	// defer close(outChan)
-	// defer close(pidChan) // todo?
 
 	go func() {
 		go func() {
@@ -36,28 +40,26 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			errChan <- err
+			handleErr(err)
 		}
 
 		if err = cmd.Start(); err != nil {
-			errChan <- err
+			handleErr(err)
 		}
 
 		pidChan <- cmd.Process.Pid
-		close(pidChan) // todo: defer?
+		close(pidChan)
 
 		cmdChan <- cmd
-		close(cmdChan) // todo: defer?
+		close(cmdChan)
 
 		scanner := bufio.NewScanner(cmdReader)
 		for scanner.Scan() {
 			outChan <- scanner.Text()
 		}
 
-		// close(outChan)
-
 		if err = cmd.Wait(); err != nil {
-			//return err
+			errChan <- err
 		}
 
 		doneChan <- true
@@ -75,5 +77,4 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 			return err
 		}
 	}
-
 }

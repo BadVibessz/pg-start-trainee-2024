@@ -10,11 +10,11 @@ import (
 	"pg-start-trainee-2024/domain/entity"
 	"pg-start-trainee-2024/internal/handler/mapper"
 	"pg-start-trainee-2024/internal/handler/request"
+	sliceutils "pg-start-trainee-2024/pkg/utils/slice"
 
 	"github.com/go-chi/render"
 
 	handlerinternalutils "pg-start-trainee-2024/internal/pkg/utils/handler"
-	sliceutils "pg-start-trainee-2024/internal/pkg/utils/slice"
 	handlerutils "pg-start-trainee-2024/pkg/utils/handler"
 )
 
@@ -65,12 +65,11 @@ func (h *Handler) Routes() *chi.Mux {
 //
 //	@Summary		Create and run new script
 //	@Description	Create and run new script
-//	@Security		JWT
-//	@Tags			Banner
+//	@Tags			Script
 //	@Accept			json
 //	@Produce		json
 //	@Param			input	body		request.CreateScript	true	"create script schema"
-//	@Success		200		{object}	response.CreateScript
+//	@Success		201		{object}	response.CreateScript
 //	@Failure		401		{string}	Unauthorized
 //	@Failure		400		{string}	invalid		request
 //	@Failure		500		{string}	internal	error
@@ -110,8 +109,7 @@ func (h *Handler) CreateScript(rw http.ResponseWriter, req *http.Request) {
 //
 //	@Summary		Stop running script
 //	@Description	Stop running script
-//	@Security		JWT
-//	@Tags			Banner
+//	@Tags			Script
 //	@Accept			json
 //	@Produce		json
 //	@Param			id	header	int	true	"script ID"
@@ -120,7 +118,7 @@ func (h *Handler) CreateScript(rw http.ResponseWriter, req *http.Request) {
 //	@Failure		400	{string}	invalid		request
 //	@Failure		500	{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [patch]
-func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // todo: what http method, PATCH?
+func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) {
 	id, err := handlerutils.GetIntHeaderByKey(req, "id")
 	if err != nil {
 		msg := fmt.Sprintf("no id header provided: %v", err)
@@ -144,8 +142,7 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // tod
 //
 //	@Summary		Get script
 //	@Description	Get script
-//	@Security		JWT
-//	@Tags			Banner
+//	@Tags			Script
 //	@Accept			json
 //	@Produce		json
 //	@Param			id	header		int	true	"script ID"
@@ -154,7 +151,7 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) { // tod
 //	@Failure		400	{string}	invalid		request
 //	@Failure		500	{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [get]
-func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) { // todo: what http method, PATCH?
+func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) {
 	id, err := handlerutils.GetIntHeaderByKey(req, "id")
 	if err != nil {
 		msg := fmt.Sprintf("no id header provided: %v", err)
@@ -179,8 +176,7 @@ func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) { // todo
 //
 //	@Summary		Get all scripts
 //	@Description	Get all scripts
-//	@Security		JWT
-//	@Tags			Banner
+//	@Tags			Script
 //	@Accept			json
 //	@Produce		json
 //	@Param			offset	query		int	false	"Offset"
@@ -214,12 +210,10 @@ func (h *Handler) GetAllScripts(rw http.ResponseWriter, req *http.Request) {
 
 // DeleteScript godoc
 //
-//	@Summary		Get all scripts
-//	@Description	Get all scripts
-//	@Security		JWT
-//	@Tags			Banner
-//	@Accept			json
-//	@Produce		json
+//	@Summary		Delete script by ID
+//	@Description	Delete script by ID
+//	@Tags			Script
+//	@Produce		string
 //	@Param			id	header		int	true	"script ID"
 //	@Success		200
 //	@Failure		400		{string}	invalid		request

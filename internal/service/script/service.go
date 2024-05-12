@@ -67,7 +67,7 @@ func (s *Service) outCallback(ctx context.Context, n int, id int) func(chan stri
 		i := 0
 		for str := range outChan {
 			if i < n {
-				strs = append(strs, fmt.Sprintf("%v\n", str))
+				strs[i] = fmt.Sprintf("%v\n", str)
 				i++
 			} else {
 				// update script and 'clear' strs
@@ -150,18 +150,19 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 			// if err occurred and err != ErrContextCancelled -> we have to delete created script from db as script hasn't started
 			if _, err = s.Repo.DeleteScript(context.Background(), scpt.ID); err != nil {
 				s.logger.Errorf("error occurred deleting script from db: %v", err)
-			} else {
-				if _, err = s.Repo.UpdateScriptRunningState(context.Background(), scpt.ID, false); err != nil {
-					s.logger.Errorf("error occurred updating script is_running column: %v", err)
-				}
-
-				// remove from cache
-				s.mutex.Lock()
-				defer s.mutex.Unlock()
-
-				s.Cache.Delete(strconv.Itoa(scpt.ID))
 			}
 		}
+
+		// script execution not started or stopped: whether it's cancelled or not -> update is_running to false
+		if _, err = s.Repo.UpdateScriptRunningState(context.Background(), scpt.ID, false); err != nil {
+			s.logger.Errorf("error occurred updating script is_running column: %v", err)
+		}
+
+		// remove from cache
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		s.Cache.Delete(strconv.Itoa(scpt.ID))
 	}()
 
 	wg.Wait()

@@ -9,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	gocache "github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	httpswagger "github.com/swaggo/http-swagger"
@@ -24,8 +25,6 @@ import (
 	dbutils "pg-start-trainee-2024/pkg/utils/db"
 	"strconv"
 	"syscall"
-
-	gocache "github.com/patrickmn/go-cache"
 )
 
 const (
