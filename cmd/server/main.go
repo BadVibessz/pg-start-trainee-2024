@@ -89,7 +89,7 @@ func main() {
 
 	scriptRepo := scriprepo.New(db)
 	scriptService := scriptservice.New(scriptRepo, cache, conf.Service.OutputBufferLength)
-	scriptHandler := scripthandler.New(scriptService, logger, valid)
+	scriptHandler := scripthandler.New(scriptService, logger, valid, conf.Handler.DefaultOffset, conf.Handler.DefaultLimit)
 
 	routers := make(map[string]chi.Router)
 

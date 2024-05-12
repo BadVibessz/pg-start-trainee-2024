@@ -32,16 +32,20 @@ type Handler struct {
 	Service     Service
 	Middlewares []Middleware
 
-	logger    *logrus.Logger
-	validator *validator.Validate
+	logger        *logrus.Logger
+	validator     *validator.Validate
+	defaultOffset int
+	defaultLimit  int
 }
 
-func New(service Service, logger *logrus.Logger, validator *validator.Validate, middlewares ...Middleware) *Handler {
+func New(service Service, logger *logrus.Logger, validator *validator.Validate, defaultOffset, defaultLimit int, middlewares ...Middleware) *Handler {
 	return &Handler{
-		Service:     service,
-		Middlewares: middlewares,
-		logger:      logger,
-		validator:   validator,
+		Service:       service,
+		Middlewares:   middlewares,
+		logger:        logger,
+		validator:     validator,
+		defaultOffset: defaultOffset,
+		defaultLimit:  defaultLimit,
 	}
 }
 
@@ -55,7 +59,7 @@ func (h *Handler) Routes() *chi.Mux {
 		r.Patch("/", h.StopScript)
 		r.Get("/", h.GetScript)
 		r.Get("/all", h.GetAllScripts)
-		r.Delete("/", h.DeleteScript) // todo: path param maybe?
+		r.Delete("/", h.DeleteScript)
 	})
 
 	return router
@@ -69,7 +73,7 @@ func (h *Handler) Routes() *chi.Mux {
 //	@Accept			json
 //	@Produce		json
 //	@Param			input	body		request.CreateScript	true	"create script schema"
-//	@Success		201		{object}	response.CreateScript
+//	@Success		200		{object}	response.CreateScript
 //	@Failure		401		{string}	Unauthorized
 //	@Failure		400		{string}	invalid		request
 //	@Failure		500		{string}	internal	error
@@ -102,7 +106,7 @@ func (h *Handler) CreateScript(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	render.JSON(rw, req, mapper.MapScriptToCreateScriptResponse(created))
-	rw.WriteHeader(http.StatusCreated)
+	rw.WriteHeader(http.StatusOK)
 }
 
 // StopScript godoc
@@ -186,7 +190,7 @@ func (h *Handler) GetScript(rw http.ResponseWriter, req *http.Request) {
 //	@Failure		500		{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script/all [get]
 func (h *Handler) GetAllScripts(rw http.ResponseWriter, req *http.Request) {
-	paginationOpts := handlerinternalutils.GetPaginationOptsFromQuery(req, DefaultOffset, DefaultLimit)
+	paginationOpts := handlerinternalutils.GetPaginationOptsFromQuery(req, h.defaultOffset, h.defaultLimit)
 
 	if err := paginationOpts.Validate(h.validator); err != nil {
 		msg := fmt.Sprintf("invalid pagination options provided: %v", err)
@@ -214,10 +218,10 @@ func (h *Handler) GetAllScripts(rw http.ResponseWriter, req *http.Request) {
 //	@Description	Delete script by ID
 //	@Tags			Script
 //	@Produce		string
-//	@Param			id	header		int	true	"script ID"
+//	@Param			id	header	int	true	"script ID"
 //	@Success		200
-//	@Failure		400		{string}	invalid		request
-//	@Failure		500		{string}	internal	error
+//	@Failure		400	{string}	invalid		request
+//	@Failure		500	{string}	internal	error
 //	@Router			/pg-start-trainee/api/v1/script [delete]
 func (h *Handler) DeleteScript(rw http.ResponseWriter, req *http.Request) {
 	id, err := handlerutils.GetIntHeaderByKey(req, "id")

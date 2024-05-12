@@ -86,5 +86,6 @@ func (s *Suite) TestDeleteRunningLongScript() {
 	_, err = getScriptFromDB(s.db, id)
 	s.Error(err)
 
-	// check that process isn't stopped  // TODO:
+	// check that process stopped
+	s.runCheckPidExistsScript(created.PID, "")
 }

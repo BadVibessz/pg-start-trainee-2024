@@ -188,7 +188,7 @@ func (s *Suite) TestCreateLongScript() {
 	recorder := httptest.NewRecorder()
 	r.ServeHTTP(recorder, req)
 
-	s.Equal(http.StatusOK, recorder.Result().StatusCode) // TODO: WHY FAILS IF HTTP 201
+	s.Equal(http.StatusOK, recorder.Result().StatusCode)
 
 	var resp response.CreateScript
 	s.NoError(json.Unmarshal([]byte(recorder.Body.String()), &resp))

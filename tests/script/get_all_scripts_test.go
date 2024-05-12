@@ -68,7 +68,7 @@ func (s *Suite) TestGetScriptsNoOffsetDefaultLimit() {
 	var resp []response.GetScript
 	s.NoError(json.Unmarshal([]byte(recorder.Body.String()), &resp))
 
-	got, err := getAllScriptsFromDB(s.db, offset, s.defaultLimit)
+	got, err := getAllScriptsFromDB(s.db, offset, s.config.Handler.DefaultLimit)
 	s.NoError(err)
 
 	// check that got in response and from db are equal
