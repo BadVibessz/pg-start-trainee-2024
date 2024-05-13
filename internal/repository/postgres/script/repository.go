@@ -3,8 +3,10 @@ package script
 import (
 	"context"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"math"
+
+	"github.com/jmoiron/sqlx"
+
 	"pg-start-trainee-2024/domain/entity"
 )
 
@@ -45,11 +47,7 @@ func (r *Repo) queryRowxContextWithStructScan(ctx context.Context, query string,
 		return err
 	}
 
-	if err := result.StructScan(dest); err != nil {
-		return err
-	}
-
-	return nil
+	return result.StructScan(dest)
 }
 
 func (r *Repo) UpdateScriptOutput(ctx context.Context, id int, output string) (*entity.Script, error) {

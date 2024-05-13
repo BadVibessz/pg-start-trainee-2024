@@ -17,11 +17,6 @@ const docTemplate = `{
     "paths": {
         "/pg-start-trainee/api/v1/script": {
             "get": {
-                "security": [
-                    {
-                        "JWT": []
-                    }
-                ],
                 "description": "Get script",
                 "consumes": [
                     "application/json"
@@ -30,7 +25,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Banner"
+                    "Script"
                 ],
                 "summary": "Get script",
                 "parameters": [
@@ -70,11 +65,6 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "JWT": []
-                    }
-                ],
                 "description": "Create and run new script",
                 "consumes": [
                     "application/json"
@@ -83,7 +73,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Banner"
+                    "Script"
                 ],
                 "summary": "Create and run new script",
                 "parameters": [
@@ -125,22 +115,14 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "security": [
-                    {
-                        "JWT": []
-                    }
-                ],
-                "description": "Get all scripts",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Delete script by ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Banner"
+                    "Script"
                 ],
-                "summary": "Get all scripts",
+                "summary": "Delete script by ID",
                 "parameters": [
                     {
                         "type": "integer",
@@ -169,11 +151,6 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "security": [
-                    {
-                        "JWT": []
-                    }
-                ],
                 "description": "Stop running script",
                 "consumes": [
                     "application/json"
@@ -182,7 +159,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Banner"
+                    "Script"
                 ],
                 "summary": "Stop running script",
                 "parameters": [
@@ -221,11 +198,6 @@ const docTemplate = `{
         },
         "/pg-start-trainee/api/v1/script/all": {
             "get": {
-                "security": [
-                    {
-                        "JWT": []
-                    }
-                ],
                 "description": "Get all scripts",
                 "consumes": [
                     "application/json"
@@ -234,7 +206,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Banner"
+                    "Script"
                 ],
                 "summary": "Get all scripts",
                 "parameters": [
@@ -286,7 +258,8 @@ const docTemplate = `{
             "properties": {
                 "command": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "example": "ping google.com"
                 }
             }
         },

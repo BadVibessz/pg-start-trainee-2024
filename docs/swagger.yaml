@@ -2,6 +2,7 @@ definitions:
   request.CreateScript:
     properties:
       command:
+        example: ping google.com
         minLength: 1
         type: string
     required:
@@ -38,9 +39,7 @@ info:
 paths:
   /pg-start-trainee/api/v1/script:
     delete:
-      consumes:
-      - application/json
-      description: Get all scripts
+      description: Delete script by ID
       parameters:
       - description: script ID
         in: header
@@ -60,11 +59,9 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      security:
-      - JWT: []
-      summary: Get all scripts
+      summary: Delete script by ID
       tags:
-      - Banner
+      - Script
     get:
       consumes:
       - application/json
@@ -94,11 +91,9 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      security:
-      - JWT: []
       summary: Get script
       tags:
-      - Banner
+      - Script
     patch:
       consumes:
       - application/json
@@ -126,11 +121,9 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      security:
-      - JWT: []
       summary: Stop running script
       tags:
-      - Banner
+      - Script
     post:
       consumes:
       - application/json
@@ -161,11 +154,9 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      security:
-      - JWT: []
       summary: Create and run new script
       tags:
-      - Banner
+      - Script
   /pg-start-trainee/api/v1/script/all:
     get:
       consumes:
@@ -197,9 +188,7 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      security:
-      - JWT: []
       summary: Get all scripts
       tags:
-      - Banner
+      - Script
 swagger: "2.0"

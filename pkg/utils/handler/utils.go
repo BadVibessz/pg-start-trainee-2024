@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 func WriteErrResponseAndLog(rw http.ResponseWriter, logger *logrus.Logger, statusCode int, logMsg string, respMsg string) {

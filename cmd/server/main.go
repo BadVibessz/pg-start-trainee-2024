@@ -4,27 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	chimiddlewares "github.com/go-chi/chi/v5/middleware"
-	"github.com/go-playground/validator/v10"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/joho/godotenv"
-	gocache "github.com/patrickmn/go-cache"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	httpswagger "github.com/swaggo/http-swagger"
 	"net/http"
 	"os"
 	"os/signal"
-	_ "pg-start-trainee-2024/docs"
+	"strconv"
+	"syscall"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
+	chimiddlewares "github.com/go-chi/chi/v5/middleware"
+	gocache "github.com/patrickmn/go-cache"
+	httpswagger "github.com/swaggo/http-swagger"
+
 	"pg-start-trainee-2024/internal/config"
+	"pg-start-trainee-2024/pkg/router"
+
 	scripthandler "pg-start-trainee-2024/internal/handler/script"
 	scriprepo "pg-start-trainee-2024/internal/repository/postgres/script"
 	scriptservice "pg-start-trainee-2024/internal/service/script"
-	"pg-start-trainee-2024/pkg/router"
+
 	dbutils "pg-start-trainee-2024/pkg/utils/db"
-	"strconv"
-	"syscall"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "pg-start-trainee-2024/docs"
 )
 
 const (

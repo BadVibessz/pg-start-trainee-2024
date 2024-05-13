@@ -3,19 +3,20 @@ package script
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
-	"net/http"
+
 	"pg-start-trainee-2024/domain/entity"
 	"pg-start-trainee-2024/internal/handler/mapper"
 	"pg-start-trainee-2024/internal/handler/request"
-	sliceutils "pg-start-trainee-2024/pkg/utils/slice"
-
-	"github.com/go-chi/render"
 
 	handlerinternalutils "pg-start-trainee-2024/internal/pkg/utils/handler"
 	handlerutils "pg-start-trainee-2024/pkg/utils/handler"
+	sliceutils "pg-start-trainee-2024/pkg/utils/slice"
 )
 
 type Service interface {
@@ -139,7 +140,11 @@ func (h *Handler) StopScript(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte("script successfully stopped."))
+
+	_, err = rw.Write([]byte("script successfully stopped."))
+	if err != nil {
+		h.logger.Errorf("error occurred writing response: %v", err)
+	}
 }
 
 // GetScript godoc
@@ -217,7 +222,7 @@ func (h *Handler) GetAllScripts(rw http.ResponseWriter, req *http.Request) {
 //	@Summary		Delete script by ID
 //	@Description	Delete script by ID
 //	@Tags			Script
-//	@Produce		string
+//	@Produce		json
 //	@Param			id	header	int	true	"script ID"
 //	@Success		200
 //	@Failure		400	{string}	invalid		request
@@ -241,5 +246,9 @@ func (h *Handler) DeleteScript(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte("script successfully deleted."))
+
+	_, err = rw.Write([]byte("script successfully deleted."))
+	if err != nil {
+		h.logger.Errorf("error occurred writing response: %v", err)
+	}
 }
