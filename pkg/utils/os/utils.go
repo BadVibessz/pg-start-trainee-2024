@@ -6,13 +6,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"time"
 )
 
 func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan chan *exec.Cmd, callback func(chan string)) error {
 	errChan := make(chan error)
-	doneChan := make(chan bool)
+	doneChan := make(chan bool, 1)
 	outChan := make(chan string)
+
+	var isOutChanClosed int32
+
+	defer close(outChan)
 
 	handleErr := func(err error) {
 		errChan <- err
@@ -38,7 +43,12 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 
 		cmd := exec.CommandContext(ctx, "/bin/sh", filename)
 
-		cmdReader, err := cmd.StdoutPipe()
+		stdoutReader, err := cmd.StdoutPipe()
+		if err != nil {
+			handleErr(err)
+		}
+
+		stderrReader, err := cmd.StderrPipe()
 		if err != nil {
 			handleErr(err)
 		}
@@ -53,8 +63,21 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 		cmdChan <- cmd
 		close(cmdChan)
 
-		scanner := bufio.NewScanner(cmdReader)
+		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
+			if isOutChanClosed == 1 {
+				break
+			}
+
+			outChan <- scanner.Text()
+		}
+
+		scanner = bufio.NewScanner(stderrReader)
+		for scanner.Scan() {
+			if isOutChanClosed == 1 {
+				break
+			}
+
 			outChan <- scanner.Text()
 		}
 
@@ -68,12 +91,18 @@ func RunCommand(ctx context.Context, command string, pidChan chan int, cmdChan c
 	for {
 		select {
 		case <-ctx.Done():
+			atomic.AddInt32(&isOutChanClosed, 1)
+
 			return ErrContextCancelled
 
 		case <-doneChan:
+			atomic.AddInt32(&isOutChanClosed, 1)
+
 			return nil
 
 		case err := <-errChan:
+			atomic.AddInt32(&isOutChanClosed, 1)
+
 			return err
 		}
 	}

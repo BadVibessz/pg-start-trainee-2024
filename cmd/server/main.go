@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	configPath = "./config" // todo: env vars?
+	configPath = "./config"
 	baseUri    = "/pg-start-trainee/api/"
 	apiVersion = "v1"
 )

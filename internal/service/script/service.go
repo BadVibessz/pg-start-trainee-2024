@@ -3,7 +3,6 @@ package script
 import "C"
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"os/exec"
@@ -34,8 +33,8 @@ type Cache interface {
 type Service struct {
 	Repo Repo
 
-	mutex *sync.RWMutex
-	Cache Cache
+	cacheMutex *sync.RWMutex
+	Cache      Cache
 
 	logger             *logrus.Logger
 	outputBufferLength int
@@ -44,7 +43,7 @@ type Service struct {
 func New(repo Repo, cache Cache, outputBufferLength int) *Service {
 	return &Service{
 		Repo:               repo,
-		mutex:              &sync.RWMutex{},
+		cacheMutex:         &sync.RWMutex{},
 		Cache:              cache,
 		logger:             logrus.New(),
 		outputBufferLength: outputBufferLength,
@@ -102,6 +101,8 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 		return nil, err
 	}
 
+	scptMutex := &sync.RWMutex{}
+
 	cmdCtx, cancel := context.WithCancel(context.Background())
 
 	wg := sync.WaitGroup{}
@@ -113,7 +114,14 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 		for {
 			if pid := <-pidChan; pid != 0 {
 				// just as we captured pid => we can update script's PID
-				scpt, err = s.Repo.UpdateScriptPIDAndRunningState(ctx, scpt.ID, pid, true)
+				var updateErr error
+
+				scptMutex.Lock()
+				scpt, updateErr = s.Repo.UpdateScriptPIDAndRunningState(ctx, scpt.ID, pid, true)
+				if updateErr != nil {
+					s.logger.Errorf("error occurred updating script's PID and running state: %v", err)
+				}
+				scptMutex.Unlock()
 
 				break
 			}
@@ -138,7 +146,7 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 	}()
 
 	go func() {
-		err = osutils.RunCommand(
+		runErr := osutils.RunCommand(
 			cmdCtx,
 			script.Command,
 			pidChan,
@@ -146,21 +154,27 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 			s.outCallback(cmdCtx, s.outputBufferLength, scpt.ID),
 		)
 
-		if err != nil && !errors.Is(err, osutils.ErrContextCancelled) {
-			// if err occurred and err != ErrContextCancelled -> we have to delete created script from db as script hasn't started
-			if _, err = s.Repo.DeleteScript(context.Background(), scpt.ID); err != nil {
-				s.logger.Errorf("error occurred deleting script from db: %v", err)
-			}
+		if runErr != nil {
+			s.logger.Errorf("error occurred running script: %v", runErr)
 		}
+
+		//if err != nil && !errors.Is(err, osutils.ErrContextCancelled) {
+		//	// if err occurred and err != ErrContextCancelled -> we have to delete created script from db as script hasn't started
+		//	if _, err = s.Repo.DeleteScript(context.Background(), scpt.ID); err != nil {
+		//		s.logger.Errorf("error occurred deleting script from db: %v", err)
+		//	}
+		//}
 
 		// script execution not started or stopped: whether it's cancelled or not -> update is_running to false
-		if _, err = s.Repo.UpdateScriptRunningState(context.Background(), scpt.ID, false); err != nil {
+		scptMutex.RLock()
+		if _, updateErr := s.Repo.UpdateScriptRunningState(context.Background(), scpt.ID, false); updateErr != nil {
 			s.logger.Errorf("error occurred updating script is_running column: %v", err)
 		}
+		scptMutex.RUnlock()
 
 		// remove from cache
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
+		s.cacheMutex.Lock()
+		defer s.cacheMutex.Unlock()
 
 		s.Cache.Delete(strconv.Itoa(scpt.ID))
 	}()
@@ -168,8 +182,8 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 	wg.Wait()
 
 	// as script started we can add to inmemory cache tuple (script.ID, context.CancelFunc)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
 
 	s.Cache.Set(strconv.Itoa(scpt.ID), entity.CmdContext{Cmd: cmd, Cancel: cancel}, -1)
 
@@ -177,8 +191,8 @@ func (s *Service) CreateScript(ctx context.Context, script entity.Script) (*enti
 }
 
 func (s *Service) StopScript(ctx context.Context, id int) error {
-	s.mutex.RLock()
-	s.mutex.RUnlock()
+	s.cacheMutex.RLock()
+	s.cacheMutex.RUnlock()
 
 	cmdContextAny, exist := s.Cache.Get(strconv.Itoa(id))
 	if !exist {
@@ -197,7 +211,7 @@ func (s *Service) StopScript(ctx context.Context, id int) error {
 	}
 
 	// wait for cmd to exit
-	_ = cmdContext.Cmd.Wait() // it will anyway return err 'signal: killed'
+	// _ = cmdContext.Cmd.Wait() // it will anyway return err 'signal: killed'
 
 	return nil
 }
@@ -216,15 +230,15 @@ func (s *Service) DeleteScript(ctx context.Context, id int) error {
 		return ErrNoSuchScript
 	}
 
-	s.mutex.RLock()
-	s.mutex.RUnlock()
+	s.cacheMutex.RLock()
+	s.cacheMutex.RUnlock()
 
 	if cmdContextAny, exist := s.Cache.Get(strconv.Itoa(id)); exist {
 		cmdContext, ok := cmdContextAny.(entity.CmdContext)
 		if ok {
 			cmdContext.Cancel()
 
-			_ = cmdContext.Cmd.Wait()
+			// _ = cmdContext.Cmd.Wait()
 		}
 	}
 
